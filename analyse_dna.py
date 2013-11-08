@@ -1,6 +1,6 @@
 __author__ = 'markus'
 
-import timeit
+import sys
 
 
 def read_fasta(filename):
@@ -29,35 +29,73 @@ def calc_unique_kmer_len(seq_len):
     return kmer_len
 
 
-def find_kmers_pos(seq, kmer_len):
+#decodes the numbers back into the original kmer
+def to_kmer(num):
+    translation = {5: 'A', 7: 'C', 4: 'T', 1: 'G'}
+    kmer = ''
+    while num:
+        digit = num % 10
+        num /= 10
+        kmer += translation.get(digit)
+
+    return kmer[::-1]
+
+
+#encodes a kmer to numbers, to save storage
+def to_digits(kmer):
+    return [ord(char) % 10 for char in kmer.upper()]
+
+
+def find_kmers_pos(seq, kmer_len, unique):
+    """Finds all the positions of the given kmer length
+    and saves them into a dictionary
+
+    Keyword arguments:
+    seq -- The sequence that contains all the kmers
+    kmer_len -- length of the kmers we want to find
+    unique -- If True only returns unique kmers
+              If False returns all kmers occuring > 2.
+    """
     seq_len = len(seq)
     kmers_pos = {}
 
-    for i in range(seq_len - len(kmer_len)):
+    for i in range(seq_len - kmer_len):
         curr_kmer = seq[i:i+kmer_len]
         if 'N' in curr_kmer:
             continue
 
-        kmers_pos.get(curr_kmer, []).append(i)
+        kmers_pos[curr_kmer] = kmers_pos.get(curr_kmer, [])
+        kmers_pos[curr_kmer].append(i)
 
-        #if curr_kmer in unique_kmers:
-        #    unique_kmers[curr_kmer][0][0] += 1
-        #    unique_kmers[curr_kmer][1].append(i)
-        #    non_unique += 1
-        #else:
-        #    unique_kmers[curr_kmer] = ([1], [i])
-    #print(non_unique)
-    kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) > 2}
+    print("Filtering Dictionary...")
+    if unique:
+        kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) == 1}
+    else:
+        kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) > 2}
     return kmers_pos
 
 
 def find_longest_non_unique(seq, kmers_pos):
+    """Finds the longest non unique kmer
+    Loops through all the kmers and withing one kmer position-list,
+    makes all n choose 2 (n=length of the list) kmer 'comparisons'
+    or 'extensions'. Where-as a comparison Extends both kmers on each
+    side as long as they match. If the found length is longer than the
+    before found length, max_length gets updated.
+
+    Keyword arguments:
+    seq -- The sequence that contains all the kmers
+    kmers_pos -- A dictionary with kmers plus its starting positions (k: [pos1, pos2, etc])
+    """
     max_length = 0
-    extend_alternate = 0
     found_kmer_pos = []
+    c = 0
+    nr_different_kmers = len(kmers_pos)
 
     #loops through all the kmers in the dict
-    for kmer in kmers_pos.iterkeys():
+    for kmer in list(kmers_pos.keys()):
+        c += 1
+
         kmer_len = len(kmer)
 
         #Step kmer through kmer and extend it as long as the pair is equal
@@ -68,25 +106,45 @@ def find_longest_non_unique(seq, kmers_pos):
                 found_length = extend_kmers(seq, kmer_len, pos, pos2)
 
                 if found_length > max_length:
+
+                    print("Length updated to: " + str(found_length))
+                    print("k-mer " + str(c) + " out of " + str(nr_different_kmers) + " in the dictionary.\n")
                     found_kmer_pos = [pos, pos2]
                     max_length = found_length
                 elif found_length == max_length:
-                    found_kmer_pos.append(pos, pos2)
-
+                    print("Length " + str(found_length) + " found again.")
+                    print("k-mer " + str(c) + " out of " + str(nr_different_kmers) + " in the dictionary.")
+                    found_kmer_pos.extend((pos, pos2))
+        del kmers_pos[kmer]
     return max_length, found_kmer_pos
 
 
-def extend_kmers(seq, start_len, pos, pos2):
+def extend_kmers(seq, start_len, pos1, pos2):
+    """Extend given kmers, as long as they are unique
+    It extends both of the kmers on the left sight, then on the right side and whenever
+    there was an extension on either side on the other side again. Only if there was no
+    extension on both sides it will return the length of the current, extended kmer
+
+    Keyword arguments:
+    seq -- The sequence that contains all the kmers
+    start_len -- the length of both kmers before any extending
+    pos, pos2 -- the starting positions of the kmers to extend and compare
+    """
     not_unique_left = True
     not_unique_right = True
 
     prefix = 0
     suffix = 0
+    seq_len = len(seq)
 
     while not_unique_left or not_unique_right:
         while not_unique_left:
             prefix += 1
-            if seq[pos-prefix:pos+start_len+suffix] == seq[pos2-prefix:pos2+start_len+suffix]:
+            pos1_len = pos1 - prefix
+            pos2_len = pos2 - prefix
+            if (pos1_len >= 0 and pos2_len >= 0 and
+                    seq[pos1_len] != 'N' and
+                    seq[pos1_len] == seq[pos2_len]):
                 not_unique_right = True
             else:
                 not_unique_left = False
@@ -94,7 +152,11 @@ def extend_kmers(seq, start_len, pos, pos2):
 
         while not_unique_right:
             suffix += 1
-            if seq[pos-prefix:pos+start_len+suffix] == seq[pos2-prefix:pos2+start_len+suffix]:
+            pos1_len = pos1 + start_len + suffix
+            pos2_len = pos2 + start_len + suffix
+            if (pos1_len < seq_len and pos2_len < seq_len and
+                    seq[pos1_len] != 'N' and
+                    seq[pos1_len] == seq[pos2_len]):
                 not_unique_left = True
             else:
                 not_unique_right = False
@@ -103,19 +165,36 @@ def extend_kmers(seq, start_len, pos, pos2):
     return prefix + start_len + suffix
 
 if __name__ == '__main__':
-    header, seq = read_fasta("MusChr01.fa.txt")
-    kmers_pos = find_kmers_pos(seq, 14)
-    max_length, found_kmers_pos = find_longest_non_unique(seq, kmers_pos)
 
-    #t = timeit.Timer('header, seq = ad.read_fasta("MusChr01.fa.txt")',
-    #                 setup='import analyse_dna as ad; ')
-    #seconds = t.timeit(1)
-    #print(seconds)
-    #print(str(seconds/60))
-    #unique = ad.find_unique_seq(seq)
-    #unique = find_unique_seq(seq)
-    #print(len(unique))
-    #print(unique)
-    #print(header)
-    #print(len(seq))
-    #print(find_unique_kmer_len(249 * 10 ** 6))
+    print("Reading file...")
+    header, seq = read_fasta("MusChr01.fa.txt")
+
+    if 1 == len(sys.argv) or sys.argv[1] == "unique":
+        if len(sys.argv) == 3:
+            kmers_len = int(sys.argv[2])
+        else:
+            kmers_len = 9
+
+        print("Finding positions of all " + str(kmers_len) + "-mers...")
+        kmers_pos = find_kmers_pos(seq, kmers_len, True)
+        print('Positions of the unique 9-mers:')
+        print(kmers_pos)
+        print('Kmers:')
+        for pos in kmers_pos.values():
+            print(str(seq[pos[0]:pos[0]+kmers_len]))
+
+    else:
+        if len(sys.argv) == 3:
+            kmers_len = int(sys.argv[2])
+        else:
+            kmers_len = 14
+        print("Finding positions of all " + str(kmers_len) + "-mers...")
+        kmers_pos = find_kmers_pos(seq, kmers_len, False)
+        print("Finding longest non-unique k-mer...")
+        max_length, found_kmers_pos = find_longest_non_unique(seq, kmers_pos)
+        print("Length of longest non-unique k-mer:")
+        print(max_length)
+        print("Starting positions of said k-mers:")
+        print(found_kmers_pos)
+        print(list(set(found_kmers_pos)))
+        print("K-mer: " + seq[found_kmers_pos[0]:found_kmers_pos[0]+max_length])
