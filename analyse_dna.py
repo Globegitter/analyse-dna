@@ -100,9 +100,7 @@ def find_longest_non_unique(kmers_pos):
     c = 0
     nr_different_kmers = len(kmers_pos)
     global seq
-    print('test')
-    print('Process: {0}, Seq Length: {1}, memory reference: {2}'.format(os.getpid(), len(seq), id(seq)))
-    exit(0)
+    print('Process {0} started. Shared sequence memory reference: {2}'.format(os.getpid(), len(seq), id(seq)))
     #loops through all the kmers in the dict
     for kmer in list(kmers_pos.keys()):
         c += 1
