@@ -63,7 +63,8 @@ def find_kmers_pos(kmer_len, unique):
               If False returns all kmers occuring > 2.
     """
     global seq
-    seq_len = len(seq)
+    seq_len = len(seq)//10
+    print(seq_len)
     kmers_pos = {}
 
     for i in range(seq_len - kmer_len):
@@ -83,7 +84,7 @@ def find_kmers_pos(kmer_len, unique):
     return kmers_pos
 
 
-def find_longest_non_unique(kmers_pos):
+def find_longest_non_unique(kmers_pos, start_len, result_queue):
     """Finds the longest non unique kmer
     Loops through all the kmers and withing one kmer position-list,
     makes all n choose 2 (n=length of the list) kmer 'comparisons'
@@ -105,14 +106,12 @@ def find_longest_non_unique(kmers_pos):
     for kmer in list(kmers_pos.keys()):
         c += 1
 
-        kmer_len = len(kmer)
-
         #Step kmer through kmer and extend it as long as the pair is equal
         #Do that for all the current kmers and always update the length if
         # it is longer then the current max
         for i, pos in enumerate(kmers_pos[kmer][:-1]):
             for pos2 in kmers_pos[kmer][i+1:]:
-                found_length = extend_kmers(kmer_len, pos, pos2)
+                found_length = extend_kmers(start_len, pos, pos2)
 
                 if found_length > max_length:
 
@@ -125,7 +124,7 @@ def find_longest_non_unique(kmers_pos):
                     print("k-mer " + str(c) + " out of " + str(nr_different_kmers) + " in the dictionary.")
                     found_kmer_pos.extend((pos, pos2))
         del kmers_pos[kmer]
-    return max_length, found_kmer_pos
+    result_queue.put((max_length, found_kmer_pos))
 
 
 def extend_kmers(start_len, pos1, pos2):
@@ -197,13 +196,13 @@ if __name__ == '__main__':
             print(str(seq[pos[0]:pos[0]+kmers_len]))
 
     else:
-        if len(sys.argv) == 3:
+        if len(sys.argv) >= 3:
             kmers_len = int(sys.argv[2])
         else:
             kmers_len = 14
 
         nr_proc = 4
-        if len(sys.argv) == 4:
+        if len(sys.argv) >= 4:
             nr_proc = int(sys.argv[3])
 
         print("Finding positions of all " + str(kmers_len) + "-mers...")
@@ -214,7 +213,7 @@ if __name__ == '__main__':
         processes = []
         for chunk in zip(kmers_pos):
             chunk = dict(item for item in chunk[0] if item is not None)
-            p = Process(target=find_longest_non_unique, args=(chunk, result_queue))
+            p = Process(target=find_longest_non_unique, args=(chunk, kmers_len, result_queue))
             processes.append(p)
             p.start()
 
