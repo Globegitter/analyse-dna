@@ -13,12 +13,13 @@ def read_fasta(filename):
     """ Reads a sequence in Fasta format """
     seq = ''
     with open(filename, 'r') as fp:
-        header = ""
+        #header = ""
         for line in fp:
             if line == "":
                 break
             if line.startswith('>'):
-                header = line[1:].strip()
+                pass
+                #header = line[1:].strip()
             else:
                 seq += line.strip().upper()
     return seq
@@ -63,7 +64,7 @@ def find_kmers_pos(kmer_len, unique):
               If False returns all kmers occuring > 2.
     """
     global seq
-    seq_len = len(seq)//10
+    seq_len = len(seq)
     print(seq_len)
     kmers_pos = {}
 
@@ -80,7 +81,7 @@ def find_kmers_pos(kmer_len, unique):
     if unique:
         kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) == 1}
     else:
-        kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) > 2}
+        kmers_pos = {k: v for k, v in kmers_pos.items() if len(v) >= 2}
     return kmers_pos
 
 
@@ -101,7 +102,7 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
     c = 0
     nr_different_kmers = len(kmers_pos)
     global seq
-    print('Process {0} started. Shared sequence memory reference: {2}'.format(os.getpid(), len(seq), id(seq)))
+    print('Process {} started. Shared sequence memory reference: {}'.format(os.getpid(), id(seq)))
     #loops through all the kmers in the dict
     for kmer in list(kmers_pos.keys()):
         c += 1
@@ -114,14 +115,13 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
                 found_length = extend_kmers(start_len, pos, pos2)
 
                 if found_length > max_length:
-
-                    print("Length updated to: " + str(found_length))
-                    print("k-mer " + str(c) + " out of " + str(nr_different_kmers) + " in the dictionary.\n")
+                    print("Process {} updated Length to {} ".format(os.getpid(), found_length))
+                    print("k-mer {} out of {} in the dictionary.\n".format(c, nr_different_kmers))
                     found_kmer_pos = [pos, pos2]
                     max_length = found_length
                 elif found_length == max_length:
-                    print("Length " + str(found_length) + " found again.")
-                    print("k-mer " + str(c) + " out of " + str(nr_different_kmers) + " in the dictionary.")
+                    print("Process {} updated Length to {} ".format(os.getpid(), found_length))
+                    print("k-mer {} out of {} in the dictionary.".format(c, nr_different_kmers))
                     found_kmer_pos.extend((pos, pos2))
         del kmers_pos[kmer]
     result_queue.put((max_length, found_kmer_pos))
@@ -143,7 +143,7 @@ def extend_kmers(start_len, pos1, pos2):
     not_unique_right = True
 
     prefix = 0
-    suffix = 0
+    #suffix = 0
     seq_len = len(seq)
 
     while not_unique_left or not_unique_right:
@@ -160,18 +160,18 @@ def extend_kmers(start_len, pos1, pos2):
                 prefix -= 1
 
         while not_unique_right:
-            suffix += 1
-            pos1_len = pos1 + start_len + suffix
-            pos2_len = pos2 + start_len + suffix
+            start_len += 1
+            pos1_len = pos1 + start_len
+            pos2_len = pos2 + start_len
             if (pos1_len < seq_len and pos2_len < seq_len and
-                        seq[pos1_len] != 'N' and
-                        seq[pos1_len] == seq[pos2_len]):
+                    seq[pos1_len] != 'N' and
+                    seq[pos1_len] == seq[pos2_len]):
                 not_unique_left = True
             else:
                 not_unique_right = False
-                suffix -= 1
+                start_len -= 1
 
-    return prefix + start_len + suffix
+    return prefix + start_len
 
 
 if __name__ == '__main__':
@@ -187,9 +187,9 @@ if __name__ == '__main__':
         else:
             kmers_len = 9
 
-        print("Finding positions of all " + str(kmers_len) + "-mers...")
+        print("Finding positions of all {}-mers...".format(kmers_len))
         kmers_pos = find_kmers_pos(kmers_len, True)
-        print('Positions of the unique 9-mers:')
+        print('Positions of the unique {}-mers:'.format(kmers_len))
         print(kmers_pos)
         print('Kmers:')
         for pos in kmers_pos.values():
@@ -207,8 +207,14 @@ if __name__ == '__main__':
 
         print("Finding positions of all " + str(kmers_len) + "-mers...")
         kmers_pos = find_kmers_pos(kmers_len, False)
-        print("Finding longest non-unique k-mer with " + str(nr_proc) + " Processes...")
-        kmers_pos = zip_longest(*[iter(kmers_pos.items())]*math.ceil(len(kmers_pos)/nr_proc))
+        nr_kmers = len(kmers_len)
+        print("Finding longest non-unique k-mer with {} Processes...".format(nr_proc))
+        print("Dict of Length {0} split into".format(nr_kmers))
+        kmers_pos = zip_longest(*[iter(kmers_pos.items())]*math.ceil(nr_kmers/nr_proc))
+
+        del nr_kmers
+        del nr_proc
+
         result_queue = Queue()
         processes = []
         for chunk in zip(kmers_pos):
@@ -216,6 +222,9 @@ if __name__ == '__main__':
             p = Process(target=find_longest_non_unique, args=(chunk, kmers_len, result_queue))
             processes.append(p)
             p.start()
+
+        del kmers_pos
+        del kmers_len
 
         for p in processes:
             p.join()
@@ -236,4 +245,4 @@ if __name__ == '__main__':
         print(max_length)
         print("Starting positions of said k-mers:")
         print(list(set(found_kmers_pos)))
-        print("K-mer: " + seq[found_kmers_pos[0]:found_kmers_pos[0]+max_length])
+        print("K-mer: {}".format(seq[found_kmers_pos[0]:found_kmers_pos[0]+max_length]))
