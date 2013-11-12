@@ -243,8 +243,8 @@ if __name__ == '__main__':
             elif result == max_length:
                 found_kmers_pos.append(result[1])
 
-        print("Length of longest non-unique k-mer:")
-        print(max_length)
+        found_kmers_pos = list(set(found_kmers_pos))
+        print("Found {} longest non-unique k-mers of length {}".format(len(found_kmers_pos), max_length))
         print("Starting positions of said k-mers:")
-        print(list(set(found_kmers_pos)))
-        print("K-mer: {}".format(seq[found_kmers_pos[0]:found_kmers_pos[0]+max_length]))
+        print(found_kmers_pos)
+        print("Sample K-mer: {}".format(seq[found_kmers_pos[0]:found_kmers_pos[0]+max_length]))
