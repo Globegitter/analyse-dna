@@ -112,17 +112,18 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
         # it is longer then the current max
         for i, pos in enumerate(kmer[:-1]):
             for pos2 in kmer[i+1:]:
-                found_length = extend_kmers(start_len, pos, pos2)
+                prefix, new_len = extend_kmers(start_len, pos, pos2)
+                found_length = prefix + new_len
 
                 if found_length > max_length:
                     print("Process {} updated Length to {} ".format(os.getpid(), found_length))
                     print("k-mer {} out of {} in the dictionary.\n".format(c, nr_different_kmers))
-                    found_kmer_pos = [pos, pos2]
+                    found_kmer_pos = [pos - prefix, pos2 - prefix]
                     max_length = found_length
                 elif found_length == max_length:
                     print("Process {} updated Length to {} ".format(os.getpid(), found_length))
                     print("k-mer {} out of {} in the dictionary.".format(c, nr_different_kmers))
-                    found_kmer_pos.extend((pos, pos2))
+                    found_kmer_pos.extend((pos - prefix, pos2 - prefix))
         del kmers_pos[kmer]
     print("Process {} finished. Maximum found length: {}".format(os.getpid(), max_length))
     result_queue.put((max_length, found_kmer_pos))
@@ -144,7 +145,9 @@ def extend_kmers(start_len, pos1, pos2):
     not_unique_right = True
 
     prefix = 0
-    #suffix = 0
+    new_len = start_len
+    del start_len
+
     seq_len = len(seq)
 
     while not_unique_left:
@@ -159,17 +162,17 @@ def extend_kmers(start_len, pos1, pos2):
             prefix -= 1
 
     while not_unique_right:
-        start_len += 1
-        pos1_len = pos1 + start_len
-        pos2_len = pos2 + start_len
+        new_len += 1
+        pos1_len = pos1 + new_len
+        pos2_len = pos2 + new_len
         if not (pos1_len < seq_len and pos2_len < seq_len and
                 pos1_len != pos2 and pos2_len != pos1 and
                 seq[pos1_len] != 'N' and
                 seq[pos1_len] == seq[pos2_len]):
             not_unique_right = False
-            start_len -= 1
+            new_len -= 1
 
-    return prefix + start_len
+    return prefix, new_len
 
 
 if __name__ == '__main__':
