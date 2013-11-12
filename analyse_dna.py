@@ -103,15 +103,15 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
     nr_different_kmers = len(kmers_pos)
     global seq
     print('Process {} started. Shared sequence memory reference: {}'.format(os.getpid(), id(seq)))
-    #loops through all the kmers in the dict
-    for kmer in list(kmers_pos.keys()):
+    #loops through all the kmer-positions in the 2D-List
+    for kmer in kmers_pos:
         c += 1
 
         #Step kmer through kmer and extend it as long as the pair is equal
         #Do that for all the current kmers and always update the length if
         # it is longer then the current max
-        for i, pos in enumerate(kmers_pos[kmer][:-1]):
-            for pos2 in kmers_pos[kmer][i+1:]:
+        for i, pos in enumerate(kmer[:-1]):
+            for pos2 in kmer[i+1:]:
                 found_length = extend_kmers(start_len, pos, pos2)
 
                 if found_length > max_length:
@@ -208,18 +208,19 @@ if __name__ == '__main__':
         nr_kmers = len(kmers_len)
         print("Finding longest non-unique k-mer with {} Processes...".format(nr_proc))
         print("Dict of Length {} split into".format(nr_kmers))
-        kmers_pos = zip_longest(*[iter(kmers_pos.items())]*math.ceil(nr_kmers/nr_proc))
+        #Split up the dictionary for the multiple processes and transform it into a 2D-List
+        kmers_pos = zip_longest(*[iter(kmers_pos.values())]*math.ceil(nr_kmers/nr_proc))
 
         del nr_kmers
         del nr_proc
 
         result_queue = Queue()
         processes = []
-        for chunk in zip(kmers_pos):
-            chunk = dict(item for item in chunk[0] if item is not None)
+        for chunk in kmers_pos:
+            chunk = [item for item in chunk if item is not None]
             p = Process(target=find_longest_non_unique, args=(chunk, kmers_len, result_queue))
-            processes.append(p)
             p.start()
+            processes.append(p)
 
         del kmers_pos
         del kmers_len
