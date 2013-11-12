@@ -124,6 +124,7 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
                     print("k-mer {} out of {} in the dictionary.".format(c, nr_different_kmers))
                     found_kmer_pos.extend((pos, pos2))
         del kmers_pos[kmer]
+    print("Process {} finished. Maximum found length: {}".format(os.getpid(), max_length))
     result_queue.put((max_length, found_kmer_pos))
 
 
@@ -146,30 +147,27 @@ def extend_kmers(start_len, pos1, pos2):
     #suffix = 0
     seq_len = len(seq)
 
-    while not_unique_left or not_unique_right:
-        while not_unique_left:
-            prefix += 1
-            pos1_len = pos1 - prefix
-            pos2_len = pos2 - prefix
-            if (pos1_len >= 0 and pos2_len >= 0 and
-                        seq[pos1_len] != 'N' and
-                        seq[pos1_len] == seq[pos2_len]):
-                not_unique_right = True
-            else:
-                not_unique_left = False
-                prefix -= 1
+    while not_unique_left:
+        prefix += 1
+        pos1_len = pos1 - prefix
+        pos2_len = pos2 - prefix
+        if not (pos1_len >= 0 and pos2_len >= 0 and
+                pos1_len != pos2 and pos2_len != pos1 and
+                seq[pos1_len] != 'N' and
+                seq[pos1_len] == seq[pos2_len]):
+            not_unique_left = False
+            prefix -= 1
 
-        while not_unique_right:
-            start_len += 1
-            pos1_len = pos1 + start_len
-            pos2_len = pos2 + start_len
-            if (pos1_len < seq_len and pos2_len < seq_len and
-                    seq[pos1_len] != 'N' and
-                    seq[pos1_len] == seq[pos2_len]):
-                not_unique_left = True
-            else:
-                not_unique_right = False
-                start_len -= 1
+    while not_unique_right:
+        start_len += 1
+        pos1_len = pos1 + start_len
+        pos2_len = pos2 + start_len
+        if not (pos1_len < seq_len and pos2_len < seq_len and
+                pos1_len != pos2 and pos2_len != pos1 and
+                seq[pos1_len] != 'N' and
+                seq[pos1_len] == seq[pos2_len]):
+            not_unique_right = False
+            start_len -= 1
 
     return prefix + start_len
 
@@ -209,7 +207,7 @@ if __name__ == '__main__':
         kmers_pos = find_kmers_pos(kmers_len, False)
         nr_kmers = len(kmers_len)
         print("Finding longest non-unique k-mer with {} Processes...".format(nr_proc))
-        print("Dict of Length {0} split into".format(nr_kmers))
+        print("Dict of Length {} split into".format(nr_kmers))
         kmers_pos = zip_longest(*[iter(kmers_pos.items())]*math.ceil(nr_kmers/nr_proc))
 
         del nr_kmers
