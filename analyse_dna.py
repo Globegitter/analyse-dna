@@ -104,15 +104,15 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
     global seq
     print('Process {} started. Shared sequence memory reference: {}'.format(os.getpid(), id(seq)))
     #loops through all the kmer-positions in the 2D-List
-    for kmer in kmers_pos:
+    while kmers_pos:
         c += 1
 
         #Step kmer through kmer and extend it as long as the pair is equal
         #Do that for all the current kmers and always update the length if
         # it is longer then the current max
-        for i, pos in enumerate(kmer[:-1]):
-            for pos2 in kmer[i+1:]:
-                prefix, new_len = extend_kmers(start_len, pos, pos2)
+        for i in range(len(kmers_pos[0][:-1])):
+            for pos2 in kmers_pos[0][i+1:]:
+                prefix, new_len = extend_kmers(start_len, kmers_pos[0][i], pos2)
                 found_length = prefix + new_len
 
                 if found_length > max_length:
@@ -124,7 +124,7 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
                     print("Process {} updated Length to {} ".format(os.getpid(), found_length))
                     print("k-mer {} out of {} in the dictionary.".format(c, nr_different_kmers))
                     found_kmer_pos.extend((pos - prefix, pos2 - prefix))
-        del kmers_pos[kmer]
+        kmers_pos.pop(0)
     print("Process {} finished. Maximum found length: {}".format(os.getpid(), max_length))
     result_queue.put((max_length, found_kmer_pos))
 
