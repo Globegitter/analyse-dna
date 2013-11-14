@@ -61,11 +61,10 @@ def find_kmers_pos(kmer_len, unique):
     seq -- The sequence that contains all the kmers
     kmer_len -- length of the kmers we want to find
     unique -- If True only returns unique kmers
-              If False returns all kmers occuring > 2.
+              If False returns all kmers occuring >= 2.
     """
     global seq
     seq_len = len(seq)
-    print(seq_len)
     kmers_pos = {}
 
     for i in range(seq_len - kmer_len):
@@ -206,11 +205,11 @@ if __name__ == '__main__':
         if len(sys.argv) >= 4:
             nr_proc = int(sys.argv[3])
 
-        print("Finding positions of all " + str(kmers_len) + "-mers...")
+        print("Finding positions of all {}-mers...".format(kmers_len))
         kmers_pos = find_kmers_pos(kmers_len, False)
-        nr_kmers = len(kmers_len)
+        nr_kmers = len(kmers_pos)
         print("Finding longest non-unique k-mer with {} Processes...".format(nr_proc))
-        print("Dict of Length {} split into".format(nr_kmers))
+        print("Dict of Length {} is getting split equally over these processes.".format(nr_kmers))
         #Split up the dictionary for the multiple processes and transform it into a 2D-List
         kmers_pos = zip_longest(*[iter(kmers_pos.values())]*math.ceil(nr_kmers/nr_proc))
 
