@@ -117,12 +117,12 @@ def find_longest_non_unique(kmers_pos, start_len, result_queue):
                 if found_length > max_length:
                     print("Process {} updated Length to {} ".format(os.getpid(), found_length))
                     print("k-mer {} out of {} in the dictionary.\n".format(c, nr_different_kmers))
-                    found_kmer_pos = [pos - prefix, pos2 - prefix]
+                    found_kmer_pos = [kmers_pos[0][i] - prefix, pos2 - prefix]
                     max_length = found_length
                 elif found_length == max_length:
                     print("Process {} updated Length to {} ".format(os.getpid(), found_length))
                     print("k-mer {} out of {} in the dictionary.".format(c, nr_different_kmers))
-                    found_kmer_pos.extend((pos - prefix, pos2 - prefix))
+                    found_kmer_pos.extend((kmers_pos[0][i] - prefix, pos2 - prefix))
         kmers_pos.pop(0)
     print("Process {} finished. Maximum found length: {}".format(os.getpid(), max_length))
     result_queue.put((max_length, found_kmer_pos))
